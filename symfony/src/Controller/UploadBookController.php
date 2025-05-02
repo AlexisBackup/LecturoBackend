@@ -8,28 +8,36 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 use App\Service\MetadataManager;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\Response;
 
 final class UploadBookController extends AbstractController
 {
     #[Route('/api/upload-book', name: 'api_upload_book')]
-    public function UploadBook(Request $request, MetadataManager $metadataManager): JsonResponse
+    public function UploadBook(Request $request, MetadataManager $metadataManager): Response
     {
-        /** @var UploadedFile $file */
-        $file = $request->files->get('file');
+        $files = $request->files->get('file');
 
-        if ($file) {
-            $filePath = $file->getPathname();
-            $mimeType = $file->getMimeType();
+        $allMetadata = [];
 
-            try {
-                $metadata = $metadataManager->extractMetadata($filePath, $mimeType);
-                // Traitez les métadonnées selon vos besoins
-                return new JsonResponse($metadata);
-            } catch (\RuntimeException $e) {
-                return new JsonResponse(['error' => 'Upload failed', 'erreur' => $e], 400);
+        if (!empty($files)) {
+
+            foreach ($files as $file) {
+
+                if ($file instanceof UploadedFile) {
+                    $filePath = $file->getPathname();
+                    $mimeType = $file->getMimeType();
+
+                    try {
+                        $metadata = $metadataManager->extractMetadata($filePath, $mimeType);
+                        $allMetadata[] = $metadata;
+                    } catch (\RuntimeException $e) {
+                        return new JsonResponse(['error' => 'Upload failed', 'erreur' => $e->getMessage()], 400);
+                    }
+                }
             }
+            return new JsonResponse($allMetadata);
         } else {
-            return new JsonResponse(['error' => 'Upload failed', 'code' => $file->getError()], 400);
+            return new JsonResponse(['error' => 'No files uploaded'], 400);
         }
     }
 }
